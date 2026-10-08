@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>File QR</title>
+  <meta name="description" content="File QR is a personal tool that uploads files to its owner's Google Drive and shows a QR code linking to each file.">
+  <style>
+    :root { --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #475569; --border: #e2e8f0; --link: #4338ca; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #020617; --card: #0f172a; --text: #f1f5f9; --muted: #94a3b8; --border: #1e293b; --link: #a5b4fc; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 42rem; margin: 0 auto; padding: 3rem 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; }
+    h1 { margin: 0 0 .25rem; font-size: 1.75rem; }
+    h2 { margin: 2rem 0 .5rem; font-size: 1.15rem; }
+    .tagline { margin: 0; color: var(--muted); }
+    ol { padding-left: 1.25rem; }
+    a { color: var(--link); text-underline-offset: 2px; }
+    a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 2px; }
+    footer { margin-top: 2rem; color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="card">
+      <h1>File QR</h1>
+      <p class="tagline">Upload a file, save it to Google Drive, and get a QR code that links to it.</p>
+
+      <h2>What it is</h2>
+      <p>
+        File QR is a small personal tool run by its owner for their own use. It is not a public service:
+        uploading is protected by a password, and there are no user accounts.
+      </p>
+
+      <h2>How it works</h2>
+      <ol>
+        <li>The owner chooses a file in the File QR web page.</li>
+        <li>The File QR server saves the file to a folder that the app created in the owner's own Google Drive.</li>
+        <li>The file is shared as "anyone with the link can view", and the page shows a QR code for that link.</li>
+      </ol>
+
+      <h2>Google Drive access</h2>
+      <p>
+        File QR asks for the <code>drive.file</code> permission only. That lets it see and manage only the files
+        and folder it creates itself. It cannot see, read, or change any other file in your Google Drive.
+      </p>
+
+      <footer>
+        <a href="privacy.html">Privacy Policy</a> ·
+        Contact: <a href="mailto:joshuarelatorres28@gmail.com">joshuarelatorres28@gmail.com</a>
+      </footer>
+    </div>
+  </main>
+</body>
+</html>

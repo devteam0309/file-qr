@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>File QR Privacy Policy</title>
+  <style>
+    :root { --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #475569; --border: #e2e8f0; --link: #4338ca; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #020617; --card: #0f172a; --text: #f1f5f9; --muted: #94a3b8; --border: #1e293b; --link: #a5b4fc; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 42rem; margin: 0 auto; padding: 3rem 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; }
+    h1 { margin: 0 0 .25rem; font-size: 1.75rem; }
+    h2 { margin: 2rem 0 .5rem; font-size: 1.15rem; }
+    .updated { margin: 0; color: var(--muted); }
+    ul { padding-left: 1.25rem; }
+    a { color: var(--link); text-underline-offset: 2px; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 2px; }
+    footer { margin-top: 2rem; color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="card">
+      <h1>Privacy Policy</h1>
+      <p class="updated">File QR · Last updated October 8, 2026</p>
+
+      <h2>Who runs File QR</h2>
+      <p>
+        File QR is a personal tool operated by its owner for their own use. It uploads files to the owner's
+        Google Drive and shows a QR code linking to each file. It has no user accounts and no public sign-up.
+      </p>
+
+      <h2>What Google data File QR accesses</h2>
+      <p>
+        File QR asks for one Google permission: <code>https://www.googleapis.com/auth/drive.file</code>.
+        With it, the app can only create, view, and manage the files and the folder that it created itself.
+        It cannot see, read, change, or delete any other file in the Google Drive account.
+      </p>
+      <p>Specifically, File QR:</p>
+      <ul>
+        <li>creates one folder in the owner's Google Drive to hold uploads;</li>
+        <li>uploads files that the owner chooses into that folder;</li>
+        <li>sets each uploaded file to "anyone with the link can view" so the QR code works;</li>
+        <li>deletes an uploaded file only if sharing it fails, so nothing is left behind half-finished.</li>
+      </ul>
+
+      <h2>How data is used and stored</h2>
+      <ul>
+        <li>Uploaded files are held in a temporary folder on the File QR server only while they are being sent to Google Drive, and are deleted right after.</li>
+        <li>File QR has no database. It does not keep copies of files, file lists, or usage history.</li>
+        <li>The Google access credential (a refresh token) is stored only in the server's private configuration file and is used only to make the Drive requests described above.</li>
+        <li>A login cookie is used to remember that the owner entered the password. It expires after 12 hours and contains no personal information.</li>
+        <li>File QR does not use analytics, advertising, or tracking of any kind.</li>
+      </ul>
+
+      <h2>Sharing</h2>
+      <p>
+        File QR does not sell, rent, or transfer Google user data to anyone, and does not use it for advertising
+        or to train AI models. The only sharing is the "anyone with the link" setting on each uploaded file,
+        which is the purpose of the app: anyone who has the link or scans the QR code can view that file.
+      </p>
+
+      <h2>Google API Services User Data Policy</h2>
+      <p>
+        File QR's use and transfer of information received from Google APIs adheres to the
+        <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+        including the Limited Use requirements.
+      </p>
+
+      <h2>Removing access and data</h2>
+      <ul>
+        <li>Remove File QR's access to your Google account at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+        <li>Uploaded files live in your Google Drive. Delete them (or the File QR folder) in Google Drive at any time, or change their sharing to stop public access.</li>
+      </ul>
+
+      <h2>Changes</h2>
+      <p>If this policy changes, the updated version will be posted on this page with a new date.</p>
+
+      <h2>Contact</h2>
+      <p>Questions: <a href="mailto:joshuarelatorres28@gmail.com">joshuarelatorres28@gmail.com</a></p>
+
+      <footer><a href="index.html">← Back to File QR</a></footer>
+    </div>
+  </main>
+</body>
+</html>
