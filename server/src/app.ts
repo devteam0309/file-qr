@@ -187,8 +187,11 @@ export function createApp(config: Config, deps: AppDeps) {
   );
 
   api.get('/recent', requireAuth(config.SESSION_SECRET), async (req, res) => {
-    const links = await deps.links.recent(20);
-    res.json({ items: links.map((link) => toApiLink(req, link)) });
+    // Hide files that were deleted (or trashed) in Drive. Rows stay in the database, so a file
+    // restored from Drive's trash reappears with its scan count, and its QR code works again.
+    const [links, existing] = await Promise.all([deps.links.recent(100), deps.drive.listExistingFileIds()]);
+    const visible = links.filter((link) => existing.has(link.driveFileId)).slice(0, 20);
+    res.json({ items: visible.map((link) => toApiLink(req, link)) });
   });
 
   api.use((_req, _res, next) => next(new HttpError(404, 'Not found.')));

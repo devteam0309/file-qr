@@ -35,9 +35,15 @@ async function readAll(stream: Readable): Promise<Buffer> {
 
 function createFakeDrive() {
   const uploaded: { name: string; parents: string[]; mimeType: string; content: Buffer }[] = [];
+  /** Files that currently exist (not deleted/trashed) in the fake Drive. */
+  const existingIds = new Set<string>();
   const fake = {
     files: {
-      list: vi.fn(async () => ({ data: { files: [{ id: 'folder-123', name: 'Test Uploads' }] } })),
+      list: vi.fn(async (params: drive_v3.Params$Resource$Files$List) =>
+        params.q?.includes('appProperties')
+          ? { data: { files: [{ id: 'folder-123', name: 'Test Uploads' }] } }
+          : { data: { files: [...existingIds].map((id) => ({ id })) } },
+      ),
       create: vi.fn(async (params: drive_v3.Params$Resource$Files$Create) => {
         if (params.requestBody?.mimeType === 'application/vnd.google-apps.folder') {
           return { data: { id: 'new-folder-456' } };
@@ -49,15 +55,19 @@ function createFakeDrive() {
           mimeType: params.media!.mimeType!,
           content,
         });
+        existingIds.add('file-abc');
         return { data: { id: 'file-abc', webViewLink: 'https://drive.google.com/file/d/file-abc/view?usp=drivesdk' } };
       }),
-      delete: vi.fn(async () => ({ data: {} })),
+      delete: vi.fn(async ({ fileId }: { fileId: string }) => {
+        existingIds.delete(fileId);
+        return { data: {} };
+      }),
     },
     permissions: {
       create: vi.fn(async () => ({ data: { id: 'anyoneWithLink' } })),
     },
   };
-  return { fake, uploaded, client: fake as unknown as drive_v3.Drive };
+  return { fake, uploaded, existingIds, client: fake as unknown as drive_v3.Drive };
 }
 
 let tempDir: string;
@@ -383,6 +393,34 @@ describe('short links', () => {
       shortUrl: `https://qr.example.com/f/${second.slug}`,
       driveUrl: 'https://drive.google.com/file/d/file-abc/view?usp=drivesdk',
     });
+  });
+
+  it('hides files deleted or trashed in Drive from Recent uploads, and shows them again if restored', async () => {
+    // Give each upload its own Drive id.
+    let n = 0;
+    fakeDrive.fake.files.create.mockImplementation(async (params: drive_v3.Params$Resource$Files$Create) => {
+      if (params.requestBody?.mimeType === 'application/vnd.google-apps.folder') return { data: { id: 'folder-123' } };
+      const id = `file-${++n}`;
+      fakeDrive.existingIds.add(id);
+      return { data: { id, webViewLink: `https://drive.google.com/file/d/${id}/view` } };
+    });
+    await uploadOne('keep.txt');
+    const gone = await uploadOne('delete-me.txt');
+    const cookie = await login();
+    const names = async () =>
+      (await request(app).get('/api/recent').set('Cookie', cookie)).body.items.map((i: { fileName: string }) => i.fileName);
+
+    expect(await names()).toEqual(['delete-me.txt', 'keep.txt']);
+
+    fakeDrive.existingIds.delete('file-2'); // user deletes it in Google Drive
+    expect(await names()).toEqual(['keep.txt']);
+    expect(fakeDrive.fake.files.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ q: expect.stringContaining('trashed = false') }),
+    );
+
+    fakeDrive.existingIds.add('file-2'); // restored from Drive's trash
+    expect(await names()).toEqual(['delete-me.txt', 'keep.txt']);
+    expect((await links.find(gone.slug))!.fileName).toBe('delete-me.txt'); // record was kept throughout
   });
 
   it('falls back to the request host when PUBLIC_BASE_URL is not set', async () => {

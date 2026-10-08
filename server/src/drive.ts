@@ -114,6 +114,32 @@ export class DriveService {
     return created.data.id;
   }
 
+  /**
+   * Ids of the app's uploads that still exist and aren't in the trash. With the drive.file
+   * scope, Drive only returns files this app created, so this is a small list even in a big Drive.
+   */
+  async listExistingFileIds(): Promise<Set<string>> {
+    const ids = new Set<string>();
+    let pageToken: string | undefined;
+    do {
+      const token = pageToken;
+      const page = await withRetry(
+        () =>
+          this.drive.files.list({
+            q: `trashed = false and mimeType != '${FOLDER_MIME}'`,
+            spaces: 'drive',
+            fields: 'nextPageToken, files(id)',
+            pageSize: 1000,
+            pageToken: token,
+          }),
+        this.retry,
+      );
+      for (const file of page.data.files ?? []) if (file.id) ids.add(file.id);
+      pageToken = page.data.nextPageToken ?? undefined;
+    } while (pageToken);
+    return ids;
+  }
+
   async delete(fileId: string): Promise<void> {
     await withRetry(() => this.drive.files.delete({ fileId }), this.retry);
   }
