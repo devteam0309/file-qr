@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getRecent, type RecentUpload } from '../api';
+import { QrDialog } from './QrDialog';
 import { Card, ErrorAlert } from './ui';
 
 interface Props {
@@ -14,6 +15,7 @@ export function RecentUploads({ refreshKey, onSessionExpired }: Props) {
   const [items, setItems] = useState<RecentUpload[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [viewing, setViewing] = useState<RecentUpload | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,13 +61,13 @@ export function RecentUploads({ refreshKey, onSessionExpired }: Props) {
         ) : (
           <ul className="divide-y divide-slate-200 dark:divide-slate-800">
             {items?.map((item) => (
-              <li key={item.slug} className="flex items-center justify-between gap-4 py-3">
+              <li key={item.slug} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0">
                   <a
                     href={item.driveUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block truncate font-medium text-slate-900 underline-offset-2 hover:underline dark:text-slate-100"
+                    className="relative block truncate font-medium text-slate-900 underline-offset-2 hover:underline dark:text-slate-100"
                     title={item.fileName}
                   >
                     {item.fileName}
@@ -77,14 +79,28 @@ export function RecentUploads({ refreshKey, onSessionExpired }: Props) {
                     <span className="font-mono">/f/{item.slug}</span>
                   </p>
                 </div>
-                <p className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold tabular-nums text-slate-800 dark:bg-slate-800 dark:text-slate-100">
-                  {item.scanCount} {item.scanCount === 1 ? 'scan' : 'scans'}
-                </p>
+                <div className="flex shrink-0 items-center gap-2">
+                  <p className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold tabular-nums text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+                    {item.scanCount} {item.scanCount === 1 ? 'scan' : 'scans'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setViewing(item)}
+                    className="relative inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2v2h-2zM18 14h2v2h-2z" strokeLinejoin="round" />
+                    </svg>
+                    View QR
+                    <span className="sr-only"> for {item.fileName}</span>
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </section>
+      {viewing && <QrDialog item={viewing} onClose={() => setViewing(null)} />}
     </Card>
   );
 }

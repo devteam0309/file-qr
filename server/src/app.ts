@@ -225,7 +225,7 @@ export function createApp(config: Config, deps: AppDeps) {
           .send(
             messagePage(
               'This file was removed',
-              `“${link.fileName}” is no longer available. It was deleted by the person who shared it.`,
+              `“${link.fileName}” is no longer available. It was deleted from Google Drive.`,
             ),
           );
       }
