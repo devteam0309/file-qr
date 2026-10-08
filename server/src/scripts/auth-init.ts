@@ -47,11 +47,11 @@ function page(title: string, body: string): string {
 }
 
 function finish(code: number): never {
-  server.close();
+  for (const server of servers) server.close();
   process.exit(code);
 }
 
-const server = http.createServer(async (req, res) => {
+const handleRequest: http.RequestListener = async (req, res) => {
   const url = new URL(req.url ?? '/', REDIRECT_URI);
   if (url.pathname !== '/oauth2callback') {
     res.writeHead(404).end();
@@ -118,22 +118,41 @@ const server = http.createServer(async (req, res) => {
     await send(500, 'Token exchange failed', 'See the terminal for details.');
     finish(1);
   }
-});
+};
 
-server.on('error', (err: NodeJS.ErrnoException) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`\n✖ Port ${PORT} is already in use. Stop whatever is using it and try again.`);
-  } else {
-    console.error(err);
+// "localhost" may resolve to 127.0.0.1 or ::1 depending on the OS and browser,
+// so listen on both loopback addresses (and nothing else).
+const HOSTS = ['127.0.0.1', '::1'];
+let pending = HOSTS.length;
+let listening = 0;
+
+function hostSettled() {
+  if (--pending > 0) return;
+  if (listening === 0) {
+    console.error(`\n✖ Could not listen on port ${PORT} on localhost.`);
+    process.exit(1);
   }
-  process.exit(1);
-});
-
-server.listen(PORT, 'localhost', () => {
   console.log(`\nListening for the OAuth callback on ${REDIRECT_URI}`);
   console.log('(This redirect URI must be listed on your OAuth client in Google Cloud Console.)\n');
   console.log('Open this URL in your browser and approve access:\n');
   console.log(`${authUrl}\n`);
+}
+
+const servers = HOSTS.map((host) => {
+  const server = http.createServer(handleRequest);
+  server.once('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n✖ Port ${PORT} is already in use. Stop whatever is using it and try again.`);
+      process.exit(1);
+    }
+    // e.g. IPv6 disabled on this machine: carry on with the other address.
+    hostSettled();
+  });
+  server.listen(PORT, host, () => {
+    listening++;
+    hostSettled();
+  });
+  return server;
 });
 
 setTimeout(() => {

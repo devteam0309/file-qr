@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "description": "Upload a file to Google Drive and get a QR code that links to it.",
+  "engines": {
+    "node": ">=20.19"
+  },
   "workspaces": [
     "server",
     "client"

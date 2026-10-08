@@ -41,7 +41,14 @@ export function createApp(config: Config, deps: AppDeps) {
   app.disable('x-powered-by');
   app.set('trust proxy', parseTrustProxy(config.TRUST_PROXY));
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      // Helmet's default CSP adds upgrade-insecure-requests, which breaks the page when it's
+      // served over plain HTTP on a LAN address (e.g. http://192.168.x.x:3001). Behind HTTPS
+      // everything is same-origin anyway, so dropping it costs nothing.
+      contentSecurityPolicy: { directives: { upgradeInsecureRequests: null } },
+    }),
+  );
   app.use(cookieParser());
 
   const limiterMessage = (message: string) => ({ error: { message } });
@@ -53,9 +60,12 @@ export function createApp(config: Config, deps: AppDeps) {
     skipSuccessfulRequests: true,
     message: limiterMessage('Too many login attempts. Try again in 15 minutes.'),
   });
+  // Runs after requireAuth and counts per login session, not per IP: a whole office
+  // shares one public IP, so a per-IP limit would be shared by everyone.
   const uploadLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 30,
+    keyGenerator: (req) => `session:${String(req.cookies?.[SESSION_COOKIE])}`,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     message: limiterMessage('Too many uploads. Try again in a few minutes.'),
@@ -91,8 +101,8 @@ export function createApp(config: Config, deps: AppDeps) {
 
   api.post(
     '/upload',
-    uploadLimiter,
     requireAuth(config.SESSION_SECRET),
+    uploadLimiter,
     upload.single('file'),
     async (req, res) => {
       const file = req.file;

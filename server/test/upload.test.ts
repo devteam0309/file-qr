@@ -117,6 +117,8 @@ describe('auth', () => {
     const res = await request(app).get('/api/session');
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['content-security-policy']).toBeDefined();
+    // must stay off so the app works over plain HTTP on a LAN address
+    expect(res.headers['content-security-policy']).not.toMatch(/upgrade-insecure-requests/);
   });
 });
 
@@ -260,6 +262,23 @@ describe('POST /api/upload', () => {
     expect(res.body).toEqual({ error: { message: 'File is too large. The maximum size is 1 MB.' } });
     expect(fakeDrive.fake.files.create).not.toHaveBeenCalled();
     expect(tempFiles()).toEqual([]);
+  });
+
+  it('rate-limits uploads per login session, not per IP', async () => {
+    const officeMate1 = await login();
+    for (let i = 0; i < 30; i++) {
+      await request(app).post('/api/upload').set('Cookie', officeMate1).attach('file', Buffer.from('x'), 'x.txt');
+    }
+    const limited = await request(app).post('/api/upload').set('Cookie', officeMate1).attach('file', Buffer.from('x'), 'x.txt');
+    expect(limited.status).toBe(429);
+    expect(limited.body).toEqual({ error: { message: 'Too many uploads. Try again in a few minutes.' } });
+
+    // Same IP, different session: unaffected.
+    await new Promise((r) => setTimeout(r, 1100)); // JWT iat has 1s resolution; ensure a distinct token
+    const officeMate2 = await login();
+    expect(officeMate2).not.toBe(officeMate1);
+    const ok = await request(app).post('/api/upload').set('Cookie', officeMate2).attach('file', Buffer.from('x'), 'x.txt');
+    expect(ok.status).toBe(200);
   });
 
   it('returns 400 when no file is sent', async () => {

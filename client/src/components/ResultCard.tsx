@@ -13,6 +13,19 @@ function qrFileName(name: string): string {
   return `${base}-qr.png`;
 }
 
+function copyWithTextarea(text: string): void {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const ok = document.execCommand('copy');
+  textarea.remove();
+  if (!ok) throw new Error('copy command failed');
+}
+
 export function ResultCard({ result, onUploadAnother }: Props) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
@@ -42,7 +55,9 @@ export function ResultCard({ result, onUploadAnother }: Props) {
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(result.link);
+      // navigator.clipboard only exists on HTTPS or localhost; fall back for plain-HTTP LAN use.
+      if (navigator.clipboard) await navigator.clipboard.writeText(result.link);
+      else copyWithTextarea(result.link);
       setCopyStatus('Link copied to clipboard.');
     } catch {
       setCopyStatus('Copy failed. Select the link above and copy it manually.');

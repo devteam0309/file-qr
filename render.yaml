@@ -1,0 +1,32 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# One Node web service that serves both the API and the built React client over HTTPS.
+services:
+  - type: web
+    name: file-qr
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/session
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      # Render terminates HTTPS in front of the app; trust it so the session cookie
+      # is marked Secure and the login rate limit sees real client IPs.
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DRIVE_FOLDER_NAME
+        value: FileQR files
+      - key: MAX_UPLOAD_MB
+        value: "50"
+      - key: SESSION_SECRET
+        generateValue: true
+      # Secrets: Render asks for these when you create the Blueprint. Copy them from your local .env.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
