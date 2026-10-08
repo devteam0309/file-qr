@@ -109,7 +109,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-dvh">
+    <div className="flex min-h-dvh flex-col">
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 py-4">
           <h1 className="text-lg font-bold tracking-tight">File → Drive → QR</h1>
@@ -124,8 +124,8 @@ export default function App() {
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:py-12">{content}</main>
-      <footer className="mx-auto max-w-2xl px-4 pb-8 text-center text-sm text-slate-600 dark:text-slate-400">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:py-12">{content}</main>
+      <footer className="border-t border-slate-200 bg-white px-4 py-4 text-center text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
         <a
           href="https://devteam0309.github.io/file-qr/docs/index.html"
           target="_blank"
