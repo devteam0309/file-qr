@@ -124,7 +124,7 @@ export default function App() {
     <div className="flex min-h-dvh flex-col">
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 py-4">
-          <h1 className="text-lg font-bold tracking-tight">File → Drive → QR</h1>
+          <h1 className="text-lg font-bold tracking-tight">FileQR</h1>
           {session?.authenticated && (
             <button
               type="button"
