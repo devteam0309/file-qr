@@ -58,6 +58,10 @@ function createFakeDrive() {
         existingIds.add('file-abc');
         return { data: { id: 'file-abc', webViewLink: 'https://drive.google.com/file/d/file-abc/view?usp=drivesdk' } };
       }),
+      get: vi.fn(async ({ fileId }: { fileId: string }) => {
+        if (!existingIds.has(fileId)) throw googleError(404, { error: { message: `File not found: ${fileId}.` } });
+        return { data: { id: fileId, trashed: false } as { id: string; trashed: boolean } };
+      }),
       delete: vi.fn(async ({ fileId }: { fileId: string }) => {
         existingIds.delete(fileId);
         return { data: {} };
@@ -353,6 +357,42 @@ describe('short links', () => {
       expect(res.headers['content-type']).toMatch(/text\/html/);
       expect(res.text).toContain('Link not found');
     }
+  });
+
+  it('shows "This file was removed" (410) for files deleted in Drive, without counting a scan', async () => {
+    const { slug } = await uploadOne('poster.png');
+    fakeDrive.existingIds.delete('file-abc'); // deleted in Drive
+
+    const res = await request(app).get(`/f/${slug}`);
+    expect(res.status).toBe(410);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.text).toContain('This file was removed');
+    expect(res.text).toContain('poster.png');
+    expect((await links.find(slug))!.scanCount).toBe(0);
+  });
+
+  it('treats a trashed file as removed', async () => {
+    const { slug } = await uploadOne();
+    fakeDrive.fake.files.get.mockResolvedValueOnce({ data: { id: 'file-abc', trashed: true } });
+    const res = await request(app).get(`/f/${slug}`);
+    expect(res.status).toBe(410);
+    expect(fakeDrive.fake.files.get).toHaveBeenCalledWith({ fileId: 'file-abc', fields: 'id, trashed' });
+  });
+
+  it('still redirects (and counts) when the Drive check itself fails', async () => {
+    const { slug } = await uploadOne();
+    fakeDrive.fake.files.get.mockRejectedValue(googleError(503));
+    const res = await request(app).get(`/f/${slug}`);
+    expect(res.status).toBe(302);
+    expect((await links.find(slug))!.scanCount).toBe(1);
+  });
+
+  it('escapes file names on the removed page', async () => {
+    const { slug } = await uploadOne('<img src=x onerror=alert(1)>.txt');
+    fakeDrive.existingIds.delete('file-abc');
+    const res = await request(app).get(`/f/${slug}`);
+    expect(res.text).not.toContain('<img');
+    expect(res.text).toContain('&lt;img src=x onerror=alert(1)&gt;.txt');
   });
 
   it('works without logging in (it is what a phone hits after scanning)', async () => {

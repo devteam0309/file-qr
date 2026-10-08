@@ -167,7 +167,7 @@ Put it behind HTTPS with a reverse proxy (Caddy, nginx, a cloud load balancer). 
 | `POST /api/logout` | none | Clears the cookie |
 | `POST /api/upload` | cookie | Multipart, field `file`. Returns `{ fileId, name, size, link, slug, shortUrl }`. Rate limited (30 per 15 min per login session). |
 | `GET /api/recent` | cookie | `{ items: [{ slug, shortUrl, driveUrl, fileName, createdAt, scanCount }] }`, newest 20 |
-| `GET /f/:slug` | none | Counts a scan and 302-redirects to the Drive file; HTML 404 page for unknown slugs. HEAD requests aren't counted. Rate limited (60/min per IP). |
+| `GET /f/:slug` | none | Counts a scan and 302-redirects to the Drive file. HTML pages: 404 for unknown slugs, 410 "This file was removed" if the file was deleted or trashed in Drive (not counted). HEAD requests aren't counted. Rate limited (60/min per IP). |
 
 Errors always have the shape `{ "error": { "message": "..." } }`.
 

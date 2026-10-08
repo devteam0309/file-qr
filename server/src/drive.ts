@@ -140,6 +140,17 @@ export class DriveService {
     return ids;
   }
 
+  /** False if the file was deleted or is in the trash. Other errors (e.g. Drive outage) are thrown. */
+  async fileExists(fileId: string): Promise<boolean> {
+    try {
+      const res = await withRetry(() => this.drive.files.get({ fileId, fields: 'id, trashed' }), this.retry);
+      return res.data.trashed !== true;
+    } catch (err) {
+      if (googleStatus(err) === 404) return false;
+      throw err;
+    }
+  }
+
   async delete(fileId: string): Promise<void> {
     await withRetry(() => this.drive.files.delete({ fileId }), this.retry);
   }

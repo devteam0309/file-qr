@@ -209,9 +209,29 @@ export function createApp(config: Config, deps: AppDeps) {
 
     if (!SLUG_PATTERN.test(slug)) return notFound();
     try {
-      // HEAD requests (link checkers, previews) look the link up without counting a scan.
-      const link = req.method === 'HEAD' ? await deps.links.find(slug) : await deps.links.recordScan(slug);
+      const link = await deps.links.find(slug);
       if (!link) return notFound();
+
+      // Deleted or trashed in Drive: say so instead of sending people to Drive's error page.
+      // If Drive itself is failing, redirect anyway; a Google hiccup shouldn't block working codes.
+      const exists = await deps.drive.fileExists(link.driveFileId).catch((err) => {
+        console.error('[scan] Drive check failed, redirecting anyway:', err instanceof Error ? err.message : err);
+        return true;
+      });
+      if (!exists) {
+        return res
+          .status(410)
+          .type('html')
+          .send(
+            messagePage(
+              'This file was removed',
+              `“${link.fileName}” is no longer available. It was deleted by the person who shared it.`,
+            ),
+          );
+      }
+
+      // HEAD requests (link checkers, previews) don't count as scans.
+      if (req.method !== 'HEAD') await deps.links.recordScan(slug);
       res.redirect(302, link.driveUrl);
     } catch (err) {
       console.error('[scan] Lookup failed:', err instanceof Error ? (err.stack ?? err.message) : err);
