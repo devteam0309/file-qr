@@ -144,7 +144,7 @@ export default function App() {
           rel="noopener noreferrer"
           className="rounded-sm underline-offset-2 hover:text-slate-900 hover:underline dark:hover:text-slate-100"
         >
-          Jorres © 2026
+          © 2026 Jorres
           <span className="sr-only"> (opens in a new tab)</span>
         </a>
       </footer>
