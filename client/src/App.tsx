@@ -125,6 +125,17 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-4 py-8 sm:py-12">{content}</main>
+      <footer className="mx-auto max-w-2xl px-4 pb-8 text-center text-sm text-slate-600 dark:text-slate-400">
+        <a
+          href="https://devteam0309.github.io/file-qr/docs/index.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-sm underline-offset-2 hover:text-slate-900 hover:underline dark:hover:text-slate-100"
+        >
+          Jorres © 2026
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      </footer>
     </div>
   );
 }
