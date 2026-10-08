@@ -114,6 +114,10 @@ export class DriveService {
     return created.data.id;
   }
 
+  async delete(fileId: string): Promise<void> {
+    await withRetry(() => this.drive.files.delete({ fileId }), this.retry);
+  }
+
   async upload(input: UploadInput): Promise<UploadResult> {
     let folderId = await this.getFolderId();
 

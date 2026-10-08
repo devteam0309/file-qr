@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, formatBytes, getSession, logout, uploadFile, type Session, type UploadResult } from './api';
 import { LoginScreen } from './components/LoginScreen';
+import { RecentUploads } from './components/RecentUploads';
 import { ResultCard } from './components/ResultCard';
 import { UploadZone } from './components/UploadZone';
 import { Card, ErrorAlert } from './components/ui';
@@ -18,6 +19,13 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [error, setError] = useState<string | null>(null);
   const chooseButtonRef = useRef<HTMLButtonElement>(null);
+  /** Bumped after each successful upload so the Recent uploads list reloads. */
+  const [recentKey, setRecentKey] = useState(0);
+
+  const handleSessionExpired = useCallback(() => {
+    setLoginNotice('Your session expired. Please log in again.');
+    setSession((current) => (current ? { ...current, authenticated: false } : current));
+  }, []);
 
   async function refreshSession() {
     try {
@@ -47,6 +55,7 @@ export default function App() {
         onUploaded: () => setPhase({ kind: 'saving', file }),
       });
       setPhase({ kind: 'done', result });
+      setRecentKey((key) => key + 1);
     } catch (err) {
       setPhase({ kind: 'idle' });
       if (err instanceof ApiError && err.status === 401) {
@@ -93,18 +102,21 @@ export default function App() {
     );
   } else {
     content = (
-      <Card>
-        {phase.kind === 'done' ? (
-          <ResultCard result={phase.result} onUploadAnother={uploadAnother} />
-        ) : phase.kind === 'idle' ? (
-          <div className="space-y-5">
-            {error && <ErrorAlert>{error}</ErrorAlert>}
-            <UploadZone maxUploadMb={session.maxUploadMb} onFile={handleFile} buttonRef={chooseButtonRef} />
-          </div>
-        ) : (
-          <ProgressView phase={phase} />
-        )}
-      </Card>
+      <div className="space-y-6">
+        <Card>
+          {phase.kind === 'done' ? (
+            <ResultCard result={phase.result} onUploadAnother={uploadAnother} />
+          ) : phase.kind === 'idle' ? (
+            <div className="space-y-5">
+              {error && <ErrorAlert>{error}</ErrorAlert>}
+              <UploadZone maxUploadMb={session.maxUploadMb} onFile={handleFile} buttonRef={chooseButtonRef} />
+            </div>
+          ) : (
+            <ProgressView phase={phase} />
+          )}
+        </Card>
+        <RecentUploads refreshKey={recentKey} onSessionExpired={handleSessionExpired} />
+      </div>
     );
   }
 

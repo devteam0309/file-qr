@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         '/api': `http://localhost:${serverPort}`,
+        '/f/': `http://localhost:${serverPort}`, // short links in QR codes
       },
     },
   };

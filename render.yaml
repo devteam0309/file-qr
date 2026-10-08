@@ -19,6 +19,10 @@ services:
         value: FileQR files
       - key: MAX_UPLOAD_MB
         value: "50"
+      # What QR codes encode ({PUBLIC_BASE_URL}/f/{slug}). Printed codes depend on it: if you
+      # move to a custom domain later, keep this old address working (or redirecting).
+      - key: PUBLIC_BASE_URL
+        value: https://file-qr.onrender.com
       - key: SESSION_SECRET
         generateValue: true
       # Secrets: Render asks for these when you create the Blueprint. Copy them from your local .env.
@@ -29,4 +33,9 @@ services:
       - key: GOOGLE_REFRESH_TOKEN
         sync: false
       - key: APP_PASSWORD
+        sync: false
+      # Short links live in Turso (hosted SQLite): Render's own disk is wiped on every deploy.
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
         sync: false

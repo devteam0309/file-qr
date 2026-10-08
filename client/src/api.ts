@@ -7,7 +7,20 @@ export interface UploadResult {
   fileId: string;
   name: string;
   size: number;
+  /** Google Drive link. */
   link: string;
+  slug: string;
+  /** {PUBLIC_BASE_URL}/f/{slug}: what the QR code encodes. Redirects to `link` and counts the scan. */
+  shortUrl: string;
+}
+
+export interface RecentUpload {
+  slug: string;
+  shortUrl: string;
+  driveUrl: string;
+  fileName: string;
+  createdAt: string;
+  scanCount: number;
 }
 
 export class ApiError extends Error {
@@ -52,6 +65,8 @@ export const login = (password: string) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password }),
   });
+
+export const getRecent = () => request<{ items: RecentUpload[] }>('/api/recent');
 
 export const logout = () => request<{ ok: true }>('/api/logout', { method: 'POST' });
 

@@ -39,13 +39,13 @@ export function ResultCard({ result, onUploadAnother }: Props) {
   useEffect(() => {
     let cancelled = false;
     // Rendered large so the downloaded PNG prints crisply; displayed scaled down.
-    QRCode.toDataURL(result.link, { errorCorrectionLevel: 'M', margin: 4, width: 1024, color: { dark: '#000000', light: '#ffffff' } })
+    QRCode.toDataURL(result.shortUrl, { errorCorrectionLevel: 'M', margin: 4, width: 1024, color: { dark: '#000000', light: '#ffffff' } })
       .then((url) => !cancelled && setQrDataUrl(url))
       .catch((err: unknown) => !cancelled && setQrError(err instanceof Error ? err.message : 'Could not generate QR code.'));
     return () => {
       cancelled = true;
     };
-  }, [result.link]);
+  }, [result.shortUrl]);
 
   useEffect(() => {
     if (!copyStatus) return;
@@ -56,8 +56,8 @@ export function ResultCard({ result, onUploadAnother }: Props) {
   async function copyLink() {
     try {
       // navigator.clipboard only exists on HTTPS or localhost; fall back for plain-HTTP LAN use.
-      if (navigator.clipboard) await navigator.clipboard.writeText(result.link);
-      else copyWithTextarea(result.link);
+      if (navigator.clipboard) await navigator.clipboard.writeText(result.shortUrl);
+      else copyWithTextarea(result.shortUrl);
       setCopyStatus('Link copied to clipboard.');
     } catch {
       setCopyStatus('Copy failed. Select the link above and copy it manually.');
@@ -94,15 +94,15 @@ export function ResultCard({ result, onUploadAnother }: Props) {
             <dd className="text-slate-600 dark:text-slate-400">{formatBytes(result.size)}</dd>
           </div>
           <div>
-            <dt className="font-medium text-slate-600 dark:text-slate-400">Link</dt>
+            <dt className="font-medium text-slate-600 dark:text-slate-400">Short link</dt>
             <dd>
               <a
-                href={result.link}
+                href={result.shortUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="break-all text-indigo-700 underline underline-offset-2 hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-200"
               >
-                {result.link}
+                {result.shortUrl}
               </a>
             </dd>
           </div>

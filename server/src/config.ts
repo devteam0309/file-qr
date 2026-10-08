@@ -37,6 +37,35 @@ export const configSchema = googleClientSchema.extend({
   PORT: z.preprocess(blankToUndefined, z.coerce.number({ error: 'must be a number' }).int().min(1).max(65535).default(3001)),
   /** Optional: set to 1 (or a hop count / subnet) when running behind a reverse proxy. */
   TRUST_PROXY: z.preprocess(blankToUndefined, z.string().optional()),
+  /**
+   * Base URL that QR codes point at ({PUBLIC_BASE_URL}/f/{slug}). Printed codes depend on it,
+   * so set it in production. If unset, it's taken from each request (fine for local dev).
+   */
+  PUBLIC_BASE_URL: z.preprocess(
+    blankToUndefined,
+    z
+      .url({ protocol: /^https?$/, error: 'must be a full http(s) URL, e.g. https://file-qr.onrender.com' })
+      .transform((url) => url.replace(/\/+$/, ''))
+      .optional(),
+  ),
+  /** Turso (hosted SQLite) database for short links. Unset = local SQLite file in server/data/. */
+  TURSO_DATABASE_URL: z.preprocess(blankToUndefined, z.string().optional()),
+  TURSO_AUTH_TOKEN: z.preprocess(blankToUndefined, z.string().optional()),
+  /** Set to "true" by Render itself. */
+  RENDER: z.preprocess(blankToUndefined, z.string().optional()),
+}).superRefine((env, ctx) => {
+  // Render's disk is wiped on every deploy/restart: a local SQLite file there would silently
+  // lose every short link and break printed QR codes. Refuse to start instead.
+  if (env.RENDER === 'true' && !env.TURSO_DATABASE_URL) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['TURSO_DATABASE_URL'],
+      message: "is required on Render (its disk is wiped on every deploy, which would break every short link). See README → Turso.",
+    });
+  }
+  if (env.TURSO_DATABASE_URL?.startsWith('libsql://') && !env.TURSO_AUTH_TOKEN) {
+    ctx.addIssue({ code: 'custom', path: ['TURSO_AUTH_TOKEN'], message: 'is required when TURSO_DATABASE_URL is a libsql:// URL' });
+  }
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -50,7 +79,8 @@ function parseWith<T extends z.ZodType>(schema: T, env: NodeJS.ProcessEnv): z.in
   const lines = result.error.issues.map((issue) => {
     const key = String(issue.path[0] ?? '(root)');
     const raw = env[key];
-    const reason = raw === undefined || raw.trim() === '' ? 'is missing' : issue.message;
+    const missing = (raw === undefined || raw.trim() === '') && issue.code === 'invalid_type';
+    const reason = missing ? 'is missing' : issue.message;
     return `  - ${key} ${reason}`;
   });
   throw new ConfigError(

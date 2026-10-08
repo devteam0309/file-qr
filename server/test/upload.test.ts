@@ -2,12 +2,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
+import { createClient } from '@libsql/client';
 import type { drive_v3 } from 'googleapis';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { configSchema } from '../src/config.js';
 import { DriveService } from '../src/drive.js';
+import { LinkStore, SLUG_PATTERN } from '../src/links.js';
 
 const config = configSchema.parse({
   GOOGLE_CLIENT_ID: 'test-client-id',
@@ -17,6 +19,7 @@ const config = configSchema.parse({
   APP_PASSWORD: 'correct horse battery',
   SESSION_SECRET: 'x'.repeat(48),
   MAX_UPLOAD_MB: '1',
+  PUBLIC_BASE_URL: 'https://qr.example.com/', // trailing slash is stripped
 });
 
 /** Shape of a googleapis (gaxios) HTTP error. */
@@ -60,12 +63,15 @@ function createFakeDrive() {
 let tempDir: string;
 let fakeDrive: ReturnType<typeof createFakeDrive>;
 let app: ReturnType<typeof createApp>;
+let links: LinkStore;
 
-beforeEach(() => {
+beforeEach(async () => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'file-qr-test-'));
   fakeDrive = createFakeDrive();
   const drive = new DriveService(fakeDrive.client, config.DRIVE_FOLDER_NAME, { baseDelayMs: 1 });
-  app = createApp(config, { drive, tempDir });
+  links = new LinkStore(createClient({ url: ':memory:' }));
+  await links.init();
+  app = createApp(config, { drive, links, tempDir });
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -136,6 +142,8 @@ describe('POST /api/upload', () => {
       name: 'notes.txt',
       size: 11,
       link: 'https://drive.google.com/file/d/file-abc/view?usp=drivesdk',
+      slug: expect.stringMatching(SLUG_PATTERN),
+      shortUrl: `https://qr.example.com/f/${res.body.slug}`,
     });
 
     expect(fakeDrive.uploaded).toEqual([
@@ -286,5 +294,124 @@ describe('POST /api/upload', () => {
     const res = await request(app).post('/api/upload').set('Cookie', cookie).field('other', 'x');
     expect(res.status).toBe(400);
     expect(res.body.error.message).toMatch(/field "file"/);
+  });
+});
+
+describe('short links', () => {
+  async function uploadOne(name = 'flyer.pdf'): Promise<{ slug: string; shortUrl: string }> {
+    const cookie = await login();
+    const res = await request(app).post('/api/upload').set('Cookie', cookie).attach('file', Buffer.from('x'), name);
+    expect(res.status).toBe(200);
+    return res.body;
+  }
+
+  it('saves a record with an 8-character slug for each upload', async () => {
+    const { slug } = await uploadOne('flyer.pdf');
+    expect(slug).toMatch(/^[A-Za-z0-9]{8}$/);
+    expect(await links.find(slug)).toEqual({
+      slug,
+      driveFileId: 'file-abc',
+      driveUrl: 'https://drive.google.com/file/d/file-abc/view?usp=drivesdk',
+      fileName: 'flyer.pdf',
+      createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      scanCount: 0,
+    });
+  });
+
+  it('GET /f/:slug counts the scan and 302-redirects to Drive', async () => {
+    const { slug } = await uploadOne();
+    for (const expected of [1, 2]) {
+      const res = await request(app).get(`/f/${slug}`);
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toBe('https://drive.google.com/file/d/file-abc/view?usp=drivesdk');
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect((await links.find(slug))!.scanCount).toBe(expected);
+    }
+  });
+
+  it('does not count HEAD requests (link checkers, previews)', async () => {
+    const { slug } = await uploadOne();
+    const res = await request(app).head(`/f/${slug}`);
+    expect(res.status).toBe(302);
+    expect((await links.find(slug))!.scanCount).toBe(0);
+  });
+
+  it('shows an HTML 404 page for unknown or malformed slugs', async () => {
+    for (const slug of ['abcdefgh', 'short', 'has space', '0OlI1abc']) {
+      const res = await request(app).get(`/f/${encodeURIComponent(slug)}`);
+      expect(res.status).toBe(404);
+      expect(res.headers['content-type']).toMatch(/text\/html/);
+      expect(res.text).toContain('Link not found');
+    }
+  });
+
+  it('works without logging in (it is what a phone hits after scanning)', async () => {
+    const { slug } = await uploadOne();
+    const res = await request(app).get(`/f/${slug}`); // no cookie
+    expect(res.status).toBe(302);
+  });
+
+  it('undoes the Drive upload if saving the short link fails', async () => {
+    vi.spyOn(links, 'create').mockRejectedValue(new Error('database is down'));
+    const cookie = await login();
+    const res = await request(app).post('/api/upload').set('Cookie', cookie).attach('file', Buffer.from('x'), 'x.txt');
+
+    expect(res.status).toBe(503);
+    expect(res.body.error.message).toMatch(/upload was undone/);
+    expect(fakeDrive.fake.files.delete).toHaveBeenCalledWith({ fileId: 'file-abc' });
+    expect(tempFiles()).toEqual([]);
+  });
+
+  it('GET /api/recent lists newest first with scan counts, and requires login', async () => {
+    expect((await request(app).get('/api/recent')).status).toBe(401);
+
+    const first = await uploadOne('first.txt');
+    const second = await uploadOne('second.txt');
+    await request(app).get(`/f/${first.slug}`);
+    await request(app).get(`/f/${first.slug}`);
+    await request(app).get(`/f/${second.slug}`);
+
+    const cookie = await login();
+    const res = await request(app).get('/api/recent').set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.items.map((i: { fileName: string; scanCount: number }) => [i.fileName, i.scanCount])).toEqual([
+      ['second.txt', 1],
+      ['first.txt', 2],
+    ]);
+    expect(res.body.items[0]).toMatchObject({
+      slug: second.slug,
+      shortUrl: `https://qr.example.com/f/${second.slug}`,
+      driveUrl: 'https://drive.google.com/file/d/file-abc/view?usp=drivesdk',
+    });
+  });
+
+  it('falls back to the request host when PUBLIC_BASE_URL is not set', async () => {
+    const drive = new DriveService(fakeDrive.client, config.DRIVE_FOLDER_NAME, { baseDelayMs: 1 });
+    app = createApp({ ...config, PUBLIC_BASE_URL: undefined }, { drive, links, tempDir });
+    const { slug, shortUrl } = await uploadOne();
+    expect(shortUrl).toMatch(new RegExp(`^http://127\\.0\\.0\\.1:\\d+/f/${slug}$`));
+  });
+});
+
+describe('config', () => {
+  const base = {
+    GOOGLE_CLIENT_ID: 'id',
+    GOOGLE_CLIENT_SECRET: 'secret',
+    GOOGLE_REFRESH_TOKEN: 'token',
+    APP_PASSWORD: 'password123',
+    SESSION_SECRET: 'x'.repeat(48),
+  };
+
+  it('refuses to run on Render without Turso (its disk is wiped on deploy)', () => {
+    const result = configSchema.safeParse({ ...base, RENDER: 'true' });
+    expect(result.success).toBe(false);
+    expect(result.error!.issues[0]!.path).toEqual(['TURSO_DATABASE_URL']);
+    const withTurso = { ...base, RENDER: 'true', TURSO_DATABASE_URL: 'libsql://db.turso.io', TURSO_AUTH_TOKEN: 't' };
+    expect(configSchema.safeParse(withTurso).success).toBe(true);
+  });
+
+  it('requires a token for libsql:// URLs and a full URL for PUBLIC_BASE_URL', () => {
+    expect(configSchema.safeParse({ ...base, TURSO_DATABASE_URL: 'libsql://db.turso.io' }).success).toBe(false);
+    expect(configSchema.safeParse({ ...base, PUBLIC_BASE_URL: 'file-qr.onrender.com' }).success).toBe(false);
   });
 });
